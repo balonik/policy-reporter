@@ -4,18 +4,14 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
-	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go-v2/service/securityhub"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"go.uber.org/zap"
 )
 
@@ -144,8 +140,6 @@ func NewHubClient(accessKeyID, secretAccessKey, region, endpoint string) *securi
 }
 
 func createConfig(accessKeyID, secretAccessKey, region string) (aws.Config, error) {
-	roleARN := os.Getenv("AWS_ROLE_ARN")
-	webIdentity := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE")
 
 	cfg, err := config.LoadDefaultConfig(context.TODO(), func(o *config.LoadOptions) error {
 		if region != "" {
@@ -161,14 +155,6 @@ func createConfig(accessKeyID, secretAccessKey, region string) (aws.Config, erro
 	if accessKeyID != "" && secretAccessKey != "" {
 		zap.L().Debug("configure AWS credentals provider", zap.String("provider", "StaticCredentialsProvider"))
 		cfg.Credentials = credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, "")
-	} else if webIdentity != "" && roleARN != "" {
-		zap.L().Debug("configure AWS credentals provider", zap.String("provider", "WebIdentityRoleProvider"), zap.String("WebIdentidyFile", webIdentity))
-		cfg.Credentials = stscreds.NewWebIdentityRoleProvider(sts.NewFromConfig(cfg), roleARN, stscreds.IdentityTokenFile(webIdentity))
-	} else if roleARN != "" {
-		zap.L().Debug("configure AWS credentals provider", zap.String("provider", "AssumeRoleProvider"))
-		cfg.Credentials = stscreds.NewAssumeRoleProvider(sts.NewFromConfig(cfg), roleARN)
-	} else {
-		cfg.Credentials = ec2rolecreds.New()
 	}
 
 	return cfg, nil
